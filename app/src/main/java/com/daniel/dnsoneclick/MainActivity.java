@@ -1,13 +1,17 @@
 package com.daniel.dnsoneclick;
 
 import android.app.Activity;
+import android.app.StatusBarManager;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.Icon;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.service.quicksettings.TileService;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.view.View;
@@ -94,6 +98,14 @@ public class MainActivity extends Activity {
         root.addView(actionButton("DNS AUTOMÁTICO", () -> setPrivateDns("opportunistic", "", "DNS automático ativado")));
         root.addView(actionButton("DESLIGAR DNS PRIVADO", () -> setPrivateDns("off", "", "DNS privado desligado")));
 
+        TextView tileSection = text("Atalho no painel rápido", 19, TEXT, true);
+        tileSection.setPadding(0, dp(22), 0, dp(4));
+        root.addView(tileSection);
+        TextView tileHelp = text("Adiciona um botão na área de atalhos do Galaxy. Cada toque alterna: AdGuard → Automático → Desligado → AdGuard.", 14, MUTED, false);
+        tileHelp.setPadding(0, 0, 0, dp(4));
+        root.addView(tileHelp);
+        root.addView(actionButton("ADICIONAR AO PAINEL RÁPIDO", this::requestQuickSettingsTile));
+
         setupBox = card();
         LinearLayout.LayoutParams boxLp = new LinearLayout.LayoutParams(-1, -2);
         boxLp.topMargin = dp(22);
@@ -115,7 +127,7 @@ public class MainActivity extends Activity {
         setupBox.addView(setupStatus);
         root.addView(setupBox);
 
-        TextView note = text("Depois de aparecer ‘Permissão liberada’, você pode desligar a Depuração sem fio. A troca de DNS continua funcionando.", 13, MUTED, false);
+        TextView note = text("Depois de aparecer ‘Permissão liberada’, você pode desligar a Depuração sem fio. A troca de DNS e o botão do painel continuam funcionando.", 13, MUTED, false);
         note.setPadding(0, dp(16), 0, 0);
         root.addView(note);
         return scroll;
@@ -150,8 +162,43 @@ public class MainActivity extends Activity {
             Settings.Global.putString(getContentResolver(), "private_dns_specifier", host);
             Toast.makeText(this, success, Toast.LENGTH_SHORT).show();
             refreshStatus();
+            refreshQuickTile();
         } catch (SecurityException e) {
             Toast.makeText(this, "A permissão especial ainda não foi liberada.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void requestQuickSettingsTile() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            StatusBarManager statusBarManager = getSystemService(StatusBarManager.class);
+            if (statusBarManager == null) {
+                showManualTileInstructions();
+                return;
+            }
+
+            ComponentName componentName = new ComponentName(this, DnsTileService.class);
+            Icon icon = Icon.createWithResource(this, R.drawable.ic_dns_tile);
+            Toast.makeText(this, "Confirme a adição do botão DNS 1 Toque.", Toast.LENGTH_SHORT).show();
+            statusBarManager.requestAddTileService(
+                    componentName,
+                    "DNS 1 Toque",
+                    icon,
+                    getMainExecutor(),
+                    result -> refreshQuickTile()
+            );
+        } else {
+            showManualTileInstructions();
+        }
+    }
+
+    private void showManualTileInstructions() {
+        Toast.makeText(this, "Abra o painel rápido > Editar (lápis) > procure DNS 1 Toque e arraste para os atalhos.", Toast.LENGTH_LONG).show();
+    }
+
+    private void refreshQuickTile() {
+        try {
+            TileService.requestListeningState(this, new ComponentName(this, DnsTileService.class));
+        } catch (Exception ignored) {
         }
     }
 
@@ -251,6 +298,7 @@ public class MainActivity extends Activity {
                 boolean granted = hasSecurePermission();
                 runOnUiThread(() -> {
                     refreshStatus();
+                    refreshQuickTile();
                     if (granted) {
                         setupStatus.setText("✓ Pronto. Permissão liberada. Pode desligar a Depuração sem fio.");
                         Toast.makeText(this, "Pronto! Agora é 1 toque.", Toast.LENGTH_LONG).show();
