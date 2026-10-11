@@ -10,8 +10,8 @@ android {
         applicationId 'com.daniel.dnsoneclick'
         minSdk 30
         targetSdk 35
-        versionCode 6
-        versionName '1.2.2'
+        versionCode 7
+        versionName '1.2.3'
     }
 
     buildTypes {
@@ -28,7 +28,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.github.MuntashirAkon:libadb-android:3.1.1'
+    implementation 'com.github.SanniniciStyle:libadb-android:f0cbeec53046a2d8f7c3762b4a52c5ef30ccc62c'
     implementation 'com.github.MuntashirAkon:sun-security-android:1.1'
     implementation 'org.conscrypt:conscrypt-android:2.5.3'
 }
