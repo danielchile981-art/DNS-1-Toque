@@ -360,7 +360,7 @@ public class MainActivity extends Activity {
                             String line;
                             while ((line = in.readLine()) != null) {
                                 if (output.length() > 4096) break;
-                                output.append(line).append('\\n');
+                                output.append(line).append('\n');
                             }
                         } catch (IOException e) {
                             lastError = e;
