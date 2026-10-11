@@ -113,7 +113,7 @@ public class MainActivity extends Activity {
         boxLp.topMargin = dp(22);
         setupBox.setLayoutParams(boxLp);
         setupBox.addView(text("Ativação inicial — sem PC e sem Termux", 18, TEXT, true));
-        TextView help = text("Xiaomi, Redmi e POCO: em Configurações > Sobre o telefone, toque 7 vezes na versão MIUI/HyperOS (em alguns modelos, em Informações detalhadas e especificações > Versão do SO).\\nDepois, abra Configurações adicionais > Opções do desenvolvedor > Depuração sem fio. Os nomes podem variar.\\n\\n1. Toque em Parear dispositivo com código.\\n2. Mantenha a janela de pareamento aberta.\\n3. Digite a porta e o código abaixo.\\n4. Toque em Parear e liberar permissão. (Android 11 ou superior.)", 14, MUTED, false);
+        TextView help = text("Xiaomi, Redmi e POCO: em Configurações > Sobre o telefone, toque 7 vezes na versão MIUI/HyperOS (em alguns modelos, em Informações detalhadas e especificações > Versão do SO).\nDepois, abra Configurações adicionais > Opções do desenvolvedor > Depuração sem fio. Os nomes podem variar.\n\n1. Toque em Parear dispositivo com código.\n2. Mantenha a janela de pareamento aberta.\n3. Digite a porta e o código abaixo.\n4. Toque em Parear e liberar permissão. (Android 11 ou superior.)", 14, MUTED, false);
         help.setPadding(0, dp(8), 0, dp(10));
         setupBox.addView(help);
         setupBox.addView(actionButton("ABRIR DEPURAÇÃO SEM FIO", this::openWirelessDebugging));
