@@ -209,10 +209,10 @@ public class MainActivity extends Activity {
     private void showManualTileInstructions(String reason) {
         new AlertDialog.Builder(this)
                 .setTitle("Adicionar atalho no POCO/Xiaomi")
-                .setMessage(reason + "\\n\\n"
-                        + "1. Abra a Central de controle ou o painel de Configurações rápidas.\\n"
-                        + "2. Toque em Editar (ícone de lápis).\\n"
-                        + "3. Procure “DNS 1 Toque” nos blocos disponíveis.\\n"
+                .setMessage(reason + "\n\n"
+                        + "1. Abra a Central de controle ou o painel de Configurações rápidas.\n"
+                        + "2. Toque em Editar (ícone de lápis).\n"
+                        + "3. Procure “DNS 1 Toque” nos blocos disponíveis.\n"
                         + "4. Arraste-o para os blocos ativos e salve.")
                 .setPositiveButton("Entendi", null)
                 .show();
