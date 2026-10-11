@@ -24,4 +24,13 @@ public class AdbGrantOutputTest {
     public void incompleteCloseMarkerIsNotMistakenForSuccess() {
         assertNull(AdbGrantOutput.getExitCode(AdbGrantOutput.RESULT_MARKER));
     }
+    @Test
+    public void explainsXiaomiGrantRuntimeRestriction() {
+        String output = "SecurityException: android.permission.GRANT_RUNTIME_PERMISSIONS\n"
+                + AdbGrantOutput.RESULT_MARKER + "1\n";
+        String message = AdbGrantOutput.getResponseText(output);
+        org.junit.Assert.assertTrue(message.contains("Depuração USB (Configurações de segurança)"));
+        org.junit.Assert.assertTrue(message.contains("novo código"));
+    }
+
 }

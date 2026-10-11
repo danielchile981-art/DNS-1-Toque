@@ -24,6 +24,9 @@ final class AdbGrantOutput {
 
     static String getResponseText(String output) {
         if (output == null) return "";
+        if (output.contains("GRANT_RUNTIME_PERMISSIONS")) {
+            return "O HyperOS/MIUI bloqueou a permissão. Em Opções do desenvolvedor, ative “Depuração USB (Configurações de segurança)” e “Permitir conceder permissões e simular entrada via depuração USB”. Depois, mantenha a Depuração sem fio ativa e tente novamente com um novo código.";
+        }
         StringBuilder response = new StringBuilder();
         for (String line : output.split("\\r?\\n")) {
             if (line.contains(RESULT_MARKER)) continue;
