@@ -327,55 +327,81 @@ public class MainActivity extends Activity {
 
     private boolean grantSecureSettingsPermission(AbsAdbConnectionManager manager) throws Exception {
         IOException lastError = null;
+        String lastOutput = "";
         try {
             for (int attempt = 1; attempt <= 3; attempt++) {
                 if (attempt > 1) {
                     manager.disconnect();
-                    if (!manager.autoConnect(getApplicationContext(), 10_000)) {
-                        continue;
-                    }
+                    if (!manager.autoConnect(getApplicationContext(), 10_000)) continue;
                 }
 
                 AdbStream shell = null;
+                BufferedReader in = null;
+                StringBuilder output = new StringBuilder();
                 boolean commandSent = false;
                 try {
                     shell = manager.openStream(LocalServices.SHELL);
-                    try (OutputStream out = shell.openOutputStream();
-                         BufferedReader in = new BufferedReader(new InputStreamReader(shell.openInputStream()))) {
-                        String cmd = "pm grant " + getPackageName() + " " + PERMISSION + "\nexit\n";
+                    OutputStream out = shell.openOutputStream();
+                    in = new BufferedReader(new InputStreamReader(shell.openInputStream()));
+                    String command = "pm grant " + getPackageName() + " " + PERMISSION
+                            + "\\necho " + AdbGrantOutput.RESULT_MARKER + "$?\\nexit\\n";
+                    try {
+                        commandSent = true;
+                        out.write(command.getBytes(StandardCharsets.UTF_8));
+                        out.flush();
+                    } catch (IOException e) {
+                        // Wireless ADB can close the shell after accepting the command.
+                        // Still read any response and verify the permission directly.
+                        lastError = e;
+                    }
+
+                    if (commandSent) {
                         try {
-                            out.write(cmd.getBytes(StandardCharsets.UTF_8));
-                            // write() sends the command; the shell may close before flush() returns.
-                            commandSent = true;
-                            out.flush();
-                            while (in.readLine() != null) { }
+                            String line;
+                            while ((line = in.readLine()) != null) {
+                                if (output.length() > 4096) break;
+                                output.append(line).append('\\n');
+                            }
                         } catch (IOException e) {
-                            if (!commandSent || !isPeerClosedStream(e)) throw e;
-                            // libadb 3.1.1 may report the peer's normal shell close as "Stream closed."
+                            lastError = e;
                         }
                     }
                 } catch (IOException e) {
                     lastError = e;
                 } finally {
+                    if (in != null) {
+                        try { in.close(); } catch (Exception ignored) { }
+                    }
                     if (shell != null) {
                         try { shell.close(); } catch (Exception ignored) { }
                     }
                 }
 
-                Thread.sleep(400);
+                lastOutput = output.toString();
+                Thread.sleep(700);
                 if (hasSecurePermission()) return true;
+
+                Integer exitCode = AdbGrantOutput.getExitCode(lastOutput);
+                if (exitCode != null && exitCode != 0) {
+                    String details = AdbGrantOutput.getResponseText(lastOutput);
+                    lastError = new IOException(details.isEmpty()
+                            ? "O Android recusou o comando de permissão (código " + exitCode + ")."
+                            : "O Android recusou o comando: " + details);
+                }
             }
         } finally {
             try { manager.disconnect(); } catch (Exception ignored) { }
         }
 
-        if (lastError != null) throw lastError;
+        String details = AdbGrantOutput.getResponseText(lastOutput);
+        if (!details.isEmpty() && AdbGrantOutput.getExitCode(lastOutput) != null) {
+            throw new IOException("Resposta do Android: " + details, lastError);
+        }
+        if (lastError != null) {
+            throw new IOException("O Android não confirmou a permissão após três tentativas. Gere um novo código de pareamento e tente novamente.",
+                    lastError);
+        }
         return hasSecurePermission();
-    }
-
-    private boolean isPeerClosedStream(IOException error) {
-        String message = error.getMessage();
-        return message != null && message.toLowerCase().contains("stream closed");
     }
 
     private String safeMessage(Throwable e) {
