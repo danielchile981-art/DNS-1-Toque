@@ -90,7 +90,8 @@ public class DnsAccessLogicTest {
     @Test public void shellRequiresCompleteSuccessMarker() throws Exception {
         assertEquals("", AdbShellResult.checked("\n" + AdbShellResult.MARKER + "0\n"));
         for (String output : new String[]{"", "closed", "\n" + AdbShellResult.MARKER + "1\n",
-                "SecurityException: denied\n" + AdbShellResult.MARKER + "0\n"}) {
+                "SecurityException: denied\n" + AdbShellResult.MARKER + "0\n",
+                "Error while accessing settings provider\njava.lang.RemoteException: failed\n" + AdbShellResult.MARKER + "0\n"}) {
             try { AdbShellResult.checked(output); fail("Must reject incomplete or denied result"); }
             catch (IOException expected) { }
         }

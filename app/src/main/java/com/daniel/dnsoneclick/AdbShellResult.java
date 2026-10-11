@@ -10,7 +10,8 @@ final class AdbShellResult {
         String body = output.substring(0, pos).trim();
         String status = output.substring(pos + 1 + MARKER.length()).trim();
         if (!"0".equals(status) || body.contains("SecurityException")
-                || body.contains("Exception occurred") || body.contains("Permission denial"))
+                || body.contains("Exception:") || body.contains("Exception occurred")
+                || body.startsWith("Error") || body.startsWith("Can't") || body.contains("Permission denial"))
             throw new IOException("O sistema recusou o comando ADB: " + body);
         return body;
     }
