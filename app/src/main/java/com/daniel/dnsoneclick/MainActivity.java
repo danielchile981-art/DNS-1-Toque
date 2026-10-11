@@ -24,6 +24,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -305,20 +306,7 @@ public class MainActivity extends Activity {
                 if (!manager.pair(host, port, code)) throw new Exception("Pareamento recusado. Confira porta e código.");
 
                 runOnUiThread(() -> setupStatus.setText("Pareado. Conectando ao ADB local…"));
-                if (!manager.autoConnect(getApplicationContext(), 10_000)) throw new Exception("Pareou, mas não conectou. Mantenha a Depuração sem fio ligada e tente de novo.");
-
-                AdbStream shell = manager.openStream(LocalServices.SHELL);
-                try (OutputStream out = shell.openOutputStream(); BufferedReader in = new BufferedReader(new InputStreamReader(shell.openInputStream()))) {
-                    String cmd = "pm grant " + getPackageName() + " " + PERMISSION + "\nexit\n";
-                    out.write(cmd.getBytes(StandardCharsets.UTF_8));
-                    out.flush();
-                    while (in.readLine() != null) { }
-                } finally {
-                    shell.close();
-                }
-                Thread.sleep(500);
-                manager.disconnect();
-                boolean granted = hasSecurePermission();
+                if (!manager.autoConnect(getApplicationContext(), 10_000)) throw new Exception("Pareou, mas não conectou. Mantenha a Depuração sem fio                 boolean granted = grantSecureSettingsPermission(manager);ted = hasSecurePermission();
                 runOnUiThread(() -> {
                     refreshStatus();
                     refreshQuickTile();
@@ -331,6 +319,58 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> setupStatus.setText("Erro: " + safeMessage(e)));
             }
         });
+    }
+
+    private boolean grantSecureSettingsPermission(AbsAdbConnectionManager manager) throws Exception {
+        IOException lastError = null;
+        try {
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                if (attempt > 1) {
+                    manager.disconnect();
+                    if (!manager.autoConnect(getApplicationContext(), 10_000)) {
+                        continue;
+                    }
+                }
+
+                AdbStream shell = null;
+                boolean commandSent = false;
+                try {
+                    shell = manager.openStream(LocalServices.SHELL);
+                    try (OutputStream out = shell.openOutputStream();
+                         BufferedReader in = new BufferedReader(new InputStreamReader(shell.openInputStream()))) {
+                        String cmd = "pm grant " + getPackageName() + " " + PERMISSION + "\nexit\n";
+                        out.write(cmd.getBytes(StandardCharsets.UTF_8));
+                        out.flush();
+                        commandSent = true;
+                        try {
+                            while (in.readLine() != null) { }
+                        } catch (IOException e) {
+                            if (!commandSent || !isPeerClosedStream(e)) throw e;
+                            // libadb 3.1.1 may report the peer's normal shell close as "Stream closed."
+                        }
+                    }
+                } catch (IOException e) {
+                    lastError = e;
+                } finally {
+                    if (shell != null) {
+                        try { shell.close(); } catch (Exception ignored) { }
+                    }
+                }
+
+                Thread.sleep(400);
+                if (hasSecurePermission()) return true;
+            }
+        } finally {
+            try { manager.disconnect(); } catch (Exception ignored) { }
+        }
+
+        if (lastError != null) throw lastError;
+        return hasSecurePermission();
+    }
+
+    private boolean isPeerClosedStream(IOException error) {
+        String message = error.getMessage();
+        return message != null && message.toLowerCase().contains("stream closed");
     }
 
     private String safeMessage(Throwable e) {
