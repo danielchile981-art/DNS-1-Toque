@@ -41,3 +41,26 @@ O pareamento acontece localmente pelo recurso de Depuração sem fio do Android.
 ## Terceiros
 
 Usa `libadb-android` de MuntashirAkon para ADB local/pairing e dependências relacionadas. Consulte `THIRD_PARTY_NOTICES.md`.
+
+
+## Versão 1.3.0: alternativa quando o MIUI/HyperOS nega pm grant
+
+A ativação tenta conceder WRITE_SECURE_SETTINGS uma vez. Se o sistema negar,
+testa a escrita direta das configurações de DNS como usuário ADB shell,
+reaplicando apenas os valores existentes. Este teste não seleciona outro DNS.
+O modo ADB só é salvo depois do teste e da leitura dos valores.
+
+- Com a permissão concedida ao app, a depuração pode ser desligada.
+- No modo ADB, Wi-Fi e Depuração sem fio devem permanecer ligados.
+  Cada ação no app ou no bloco do painel reconecta usando a chave de pareamento salva.
+  Depois de reiniciar, pode ser necessário reativar a depuração.
+- Os dois caminhos conferem os valores após a troca. Em falhas parciais, tentam
+  restaurar a configuração anterior e avisam se a restauração também falhar.
+- O app exibe DNS **configurado**; isso não comprova que o servidor DNS está acessível.
+- Se o fabricante bloquear também a escrita pelo shell, o app não pode garantir
+  a troca em um toque. Use o botão para abrir o DNS privado do sistema.
+
+Testes automatizados cobrem recusa de concessão com escrita shell permitida,
+recusa dos dois caminhos, valores ausentes, falha silenciosa, alteração parcial,
+restauração e resposta ADB incompleta. A compilação e os testes de lógica
+não substituem testes físicos em diferentes versões do MIUI/HyperOS.

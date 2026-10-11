@@ -28,7 +28,7 @@ public class DnsTileService extends TileService {
     @Override
     public void onClick() {
         super.onClick();
-        if (!hasSecurePermission()) {
+        if (!DnsAccess.available(this)) {
             openMainApp();
             return;
         }
@@ -40,36 +40,43 @@ public class DnsTileService extends TileService {
         }
     }
 
+    private boolean changing;
+
     private void cycleDnsMode() {
-        try {
-            String mode = Settings.Global.getString(getContentResolver(), "private_dns_mode");
-            String spec = Settings.Global.getString(getContentResolver(), "private_dns_specifier");
-
-            if (isAdGuard(mode, spec)) {
-                applyDns("opportunistic", "");
-            } else if (isAutomatic(mode)) {
-                applyDns("off", "");
-            } else {
-                applyDns("hostname", DNS_HOST);
-            }
-
-            updateTile();
-        } catch (SecurityException e) {
-            Toast.makeText(this, "Abra o DNS 1 Toque e libere a permissão inicial.", Toast.LENGTH_LONG).show();
-            openMainApp();
+        if (changing) return;
+        changing = true;
+        Tile tile = getQsTile();
+        if (tile != null) {
+            tile.setSubtitle("Aplicando…");
+            tile.updateTile();
         }
-    }
-
-    private void applyDns(String mode, String host) {
-        Settings.Global.putString(getContentResolver(), "private_dns_mode", mode);
-        Settings.Global.putString(getContentResolver(), "private_dns_specifier", host);
+        DnsAccess.WORKER.submit(() -> {
+            try {
+                String mode = Settings.Global.getString(getContentResolver(), "private_dns_mode");
+                String spec = Settings.Global.getString(getContentResolver(), "private_dns_specifier");
+                if (isAdGuard(mode, spec)) DnsAccess.apply(getApplicationContext(), "opportunistic", "");
+                else if (isAutomatic(mode)) DnsAccess.apply(getApplicationContext(), "off", "");
+                else DnsAccess.apply(getApplicationContext(), "hostname", DNS_HOST);
+                getMainExecutor().execute(() -> {
+                    changing = false;
+                    updateTile();
+                });
+            } catch (Exception error) {
+                getMainExecutor().execute(() -> {
+                    changing = false;
+                    Toast.makeText(this, DnsAccess.error(error), Toast.LENGTH_LONG).show();
+                    updateTile();
+                    openMainApp();
+                });
+            }
+        });
     }
 
     private void updateTile() {
         Tile tile = getQsTile();
         if (tile == null) return;
 
-        if (!hasSecurePermission()) {
+        if (!DnsAccess.available(this)) {
             tile.setLabel("DNS 1 Toque");
             tile.setSubtitle("Abra o app para ativar");
             tile.setState(Tile.STATE_UNAVAILABLE);

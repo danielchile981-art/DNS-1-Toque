@@ -23,20 +23,12 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.github.muntashirakon.adb.AbsAdbConnectionManager;
-import io.github.muntashirakon.adb.AdbStream;
-import io.github.muntashirakon.adb.LocalServices;
 import io.github.muntashirakon.adb.android.AdbMdns;
 import io.github.muntashirakon.adb.android.AndroidUtils;
 
@@ -50,7 +42,7 @@ public class MainActivity extends Activity {
     private static final int TEXT = Color.rgb(246, 255, 249);
     private static final int MUTED = Color.rgb(168, 185, 199);
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService executor = DnsAccess.WORKER;
     private TextView permissionStatus, dnsStatus, setupStatus;
     private EditText portInput, codeInput;
     private LinearLayout setupBox;
@@ -68,7 +60,7 @@ public class MainActivity extends Activity {
 
     @Override protected void onDestroy() {
         super.onDestroy();
-        executor.shutdownNow();
+
     }
 
     private View buildUi() {
@@ -81,7 +73,7 @@ public class MainActivity extends Activity {
 
         TextView title = text("DNS 1 Toque", 30, TEXT, true);
         root.addView(title);
-        TextView subtitle = text("Compatível com Xiaomi, Redmi e POCO (MIUI/HyperOS, Android 11+). Depois da ativação inicial, altere o DNS ou use o atalho no painel.", 15, MUTED, false);
+        TextView subtitle = text("DNS privado e atalho no painel para Android 11+. A disponibilidade depende das permissões do MIUI/HyperOS.", 15, MUTED, false);
         subtitle.setPadding(0, dp(6), 0, dp(18));
         root.addView(subtitle);
 
@@ -99,6 +91,10 @@ public class MainActivity extends Activity {
         root.addView(actionButton("ATIVAR ADGUARD", () -> setPrivateDns("hostname", DNS_HOST, "AdGuard ativado")));
         root.addView(actionButton("DNS AUTOMÁTICO", () -> setPrivateDns("opportunistic", "", "DNS automático ativado")));
         root.addView(actionButton("DESLIGAR DNS PRIVADO", () -> setPrivateDns("off", "", "DNS privado desligado")));
+        root.addView(actionButton("ABRIR DNS PRIVADO DO SISTEMA", () -> {
+            try { startActivity(new Intent("android.settings.PRIVATE_DNS_SETTINGS")); }
+            catch (Exception ignored) { startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS)); }
+        }));
 
         TextView tileSection = text("Atalho no painel rápido", 19, TEXT, true);
         tileSection.setPadding(0, dp(22), 0, dp(4));
@@ -113,7 +109,7 @@ public class MainActivity extends Activity {
         boxLp.topMargin = dp(22);
         setupBox.setLayoutParams(boxLp);
         setupBox.addView(text("Ativação inicial — sem PC e sem Termux", 18, TEXT, true));
-        TextView help = text("Xiaomi, Redmi e POCO: em Configurações > Sobre o telefone, toque 7 vezes na versão MIUI/HyperOS (em alguns modelos, em Informações detalhadas e especificações > Versão do SO).\nEm Opções do desenvolvedor, ative também “Depuração USB (Configurações de segurança)” e “Permitir conceder permissões e simular entrada via depuração USB”. A opção USB de segurança pode ser necessária mesmo usando Wi-Fi.\n\nDepois, abra Configurações adicionais > Opções do desenvolvedor > Depuração sem fio.\n1. Toque em Parear dispositivo com código.\n2. Mantenha a janela de pareamento aberta.\n3. Digite a porta e o código abaixo.\n4. Toque em Parear e liberar permissão. (Android 11 ou superior.)", 14, MUTED, false);
+        TextView help = text("Xiaomi, Redmi e POCO: em Configurações > Sobre o telefone, toque 7 vezes na versão MIUI/HyperOS (em alguns modelos, em Informações detalhadas e especificações > Versão do SO).\nEm Opções do desenvolvedor, ative também “Depuração USB (Configurações de segurança)” e “Permitir conceder permissões e simular entrada via depuração USB”. A opção USB de segurança pode ser necessária mesmo usando Wi-Fi.\n\nDepois, abra Configurações adicionais > Opções do desenvolvedor > Depuração sem fio.\n1. Toque em Parear dispositivo com código.\n2. Mantenha a janela de pareamento aberta.\n3. Digite a porta e o código abaixo.\n4. Toque em Parear e testar acesso. (Android 11 ou superior.)", 14, MUTED, false);
         help.setPadding(0, dp(8), 0, dp(10));
         setupBox.addView(help);
         setupBox.addView(actionButton("ABRIR OPÇÕES DO DESENVOLVEDOR", this::openDeveloperOptions));
@@ -124,13 +120,13 @@ public class MainActivity extends Activity {
         setupBox.addView(portInput);
         setupBox.addView(codeInput);
         setupBox.addView(actionButton("DETECTAR PORTA", this::detectPort));
-        setupBox.addView(actionButton("PAREAR E LIBERAR PERMISSÃO", this::pairAndGrant));
+        setupBox.addView(actionButton("PAREAR E TESTAR ACESSO", this::pairAndGrant));
         setupStatus = text("", 14, MUTED, false);
         setupStatus.setPadding(0, dp(9), 0, 0);
         setupBox.addView(setupStatus);
         root.addView(setupBox);
 
-        TextView note = text("Depois de aparecer ‘Permissão liberada’, você pode desligar a Depuração sem fio. A troca de DNS e o botão do painel continuam funcionando.", 13, MUTED, false);
+        TextView note = text("Com permissão liberada, a depuração pode ser desligada. No modo ADB, mantenha Wi-Fi e Depuração sem fio ligados para trocar o DNS, inclusive pelo painel. Após reiniciar, pode ser necessário reativar a depuração.", 13, MUTED, false);
         note.setPadding(0, dp(16), 0, 0);
         root.addView(note);
         return scroll;
@@ -155,20 +151,29 @@ public class MainActivity extends Activity {
     }
 
     private void setPrivateDns(String mode, String host, String success) {
-        if (!hasSecurePermission()) {
-            Toast.makeText(this, "Faça a ativação inicial primeiro.", Toast.LENGTH_SHORT).show();
+        if (!DnsAccess.available(this)) {
+            Toast.makeText(this, "Faça o pareamento e teste o acesso primeiro.", Toast.LENGTH_LONG).show();
             setupBox.setVisibility(View.VISIBLE);
             return;
         }
-        try {
-            Settings.Global.putString(getContentResolver(), "private_dns_mode", mode);
-            Settings.Global.putString(getContentResolver(), "private_dns_specifier", host);
-            Toast.makeText(this, success, Toast.LENGTH_SHORT).show();
-            refreshStatus();
-            refreshQuickTile();
-        } catch (SecurityException e) {
-            Toast.makeText(this, "A permissão especial ainda não foi liberada.", Toast.LENGTH_LONG).show();
-        }
+        setupStatus.setText("Aplicando e conferindo o DNS…");
+        executor.submit(() -> {
+            try {
+                DnsAccess.apply(getApplicationContext(), mode, host);
+                runOnUiThread(() -> {
+                    Toast.makeText(this, success + " — configuração confirmada", Toast.LENGTH_LONG).show();
+                    setupStatus.setText("✓ Configuração do DNS confirmada. Isso não comprova a conexão com o servidor.");
+                    refreshStatus();
+                    refreshQuickTile();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    setupBox.setVisibility(View.VISIBLE);
+                    setupStatus.setText("Erro: " + DnsAccess.error(error));
+                    Toast.makeText(this, "A alteração não foi confirmada. Confira o aviso no app.", Toast.LENGTH_LONG).show();
+                });
+            }
+        });
     }
 
     private void requestQuickSettingsTile() {
@@ -234,14 +239,16 @@ public class MainActivity extends Activity {
     private void refreshStatus() {
         if (permissionStatus == null) return;
         boolean granted = hasSecurePermission();
-        permissionStatus.setText(granted ? "✓ Permissão liberada" : "⚠ Permissão inicial pendente");
-        permissionStatus.setTextColor(granted ? ACCENT : Color.rgb(255, 124, 124));
+        permissionStatus.setText(granted ? "✓ Permissão liberada"
+                : DnsAccess.adbConfigured(this) ? "Modo ADB testado — requer depuração sem fio"
+                : "⚠ Acesso inicial pendente");
+        permissionStatus.setTextColor(DnsAccess.available(this) ? ACCENT : Color.rgb(255, 124, 124));
         setupBox.setVisibility(granted ? View.GONE : View.VISIBLE);
         String mode = Settings.Global.getString(getContentResolver(), "private_dns_mode");
         String spec = Settings.Global.getString(getContentResolver(), "private_dns_specifier");
-        if ("hostname".equals(mode)) dnsStatus.setText("DNS atual: " + (spec == null || spec.isEmpty() ? "hostname privado" : spec));
-        else if ("off".equals(mode)) dnsStatus.setText("DNS atual: desligado");
-        else dnsStatus.setText("DNS atual: automático");
+        if ("hostname".equals(mode)) dnsStatus.setText("DNS configurado: " + (spec == null || spec.isEmpty() ? "hostname privado" : spec));
+        else if ("off".equals(mode)) dnsStatus.setText("DNS configurado: desligado");
+        else dnsStatus.setText("DNS configurado: automático");
     }
 
     private void openDeveloperOptions() {
@@ -311,113 +318,32 @@ public class MainActivity extends Activity {
                 int port = portText.isEmpty() ? discoverPairingPort(25) : Integer.parseInt(portText);
                 if (port <= 0 || port > 65535) throw new Exception("Porta de pareamento inválida.");
                 AbsAdbConnectionManager manager = AdbConnectionManager.getInstance(getApplicationContext());
+                manager.setTimeout(10, TimeUnit.SECONDS);
+                manager.disconnect();
                 String host = AndroidUtils.getHostIpAddress(getApplicationContext());
                 if (!manager.pair(host, port, code)) throw new Exception("Pareamento recusado. Confira porta e código.");
 
                 runOnUiThread(() -> setupStatus.setText("Pareado. Conectando ao ADB local…"));
-                if (!manager.autoConnect(getApplicationContext(), 10_000)) {
+                if (!manager.connectTls(getApplicationContext(), 10_000)) {
                     throw new Exception("Pareou, mas não conectou. Mantenha a Depuração sem fio ligada e tente de novo.");
                 }
 
-                boolean granted = grantSecureSettingsPermission(manager);
+                boolean granted = DnsAccess.activate(getApplicationContext(), manager);
                 runOnUiThread(() -> {
                     refreshStatus();
                     refreshQuickTile();
                     if (granted) {
                         setupStatus.setText("✓ Pronto. Permissão liberada. Pode desligar a Depuração sem fio.");
                         Toast.makeText(this, "Pronto! Agora é 1 toque.", Toast.LENGTH_LONG).show();
-                    } else setupStatus.setText("O Android não confirmou a permissão. Mantenha a Depuração sem fio ligada e tente novamente com um novo código.");
+                    } else {
+                        setupStatus.setText("✓ Modo ADB testado. Agora escolha o DNS acima. Mantenha Wi-Fi e Depuração sem fio ligados.");
+                        codeInput.setText("");
+                    }
                 });
-            } catch (Throwable e) {
-                runOnUiThread(() -> setupStatus.setText("Erro: " + safeMessage(e)));
+            } catch (Exception e) {
+                runOnUiThread(() -> setupStatus.setText("Erro: " + DnsAccess.error(e)));
             }
         });
-    }
-
-    private boolean grantSecureSettingsPermission(AbsAdbConnectionManager manager) throws Exception {
-        IOException lastError = null;
-        String lastOutput = "";
-        try {
-            for (int attempt = 1; attempt <= 3; attempt++) {
-                if (attempt > 1) {
-                    manager.disconnect();
-                    if (!manager.autoConnect(getApplicationContext(), 10_000)) continue;
-                }
-
-                AdbStream shell = null;
-                BufferedReader in = null;
-                StringBuilder output = new StringBuilder();
-                boolean commandSent = false;
-                try {
-                    shell = manager.openStream(LocalServices.SHELL);
-                    OutputStream out = shell.openOutputStream();
-                    in = new BufferedReader(new InputStreamReader(shell.openInputStream()));
-                    String command = "pm grant " + getPackageName() + " " + PERMISSION
-                            + "\necho " + AdbGrantOutput.RESULT_MARKER + "$?\nexit\n";
-                    try {
-                        commandSent = true;
-                        out.write(command.getBytes(StandardCharsets.UTF_8));
-                        out.flush();
-                    } catch (IOException e) {
-                        // Wireless ADB can close the shell after accepting the command.
-                        // Still read any response and verify the permission directly.
-                        lastError = e;
-                    }
-
-                    if (commandSent) {
-                        try {
-                            String line;
-                            while ((line = in.readLine()) != null) {
-                                if (output.length() > 4096) break;
-                                output.append(line).append('\n');
-                            }
-                        } catch (IOException e) {
-                            lastError = e;
-                        }
-                    }
-                } catch (IOException e) {
-                    lastError = e;
-                } finally {
-                    if (in != null) {
-                        try { in.close(); } catch (Exception ignored) { }
-                    }
-                    if (shell != null) {
-                        try { shell.close(); } catch (Exception ignored) { }
-                    }
-                }
-
-                lastOutput = output.toString();
-                Thread.sleep(700);
-                if (hasSecurePermission()) return true;
-
-                Integer exitCode = AdbGrantOutput.getExitCode(lastOutput);
-                if (exitCode != null && exitCode != 0) {
-                    String details = AdbGrantOutput.getResponseText(lastOutput);
-                    lastError = new IOException(details.isEmpty()
-                            ? "O Android recusou o comando de permissão (código " + exitCode + ")."
-                            : "O Android recusou o comando: " + details);
-                }
-            }
-        } finally {
-            try { manager.disconnect(); } catch (Exception ignored) { }
-        }
-
-        String details = AdbGrantOutput.getResponseText(lastOutput);
-        if (!details.isEmpty() && AdbGrantOutput.getExitCode(lastOutput) != null) {
-            throw new IOException("Resposta do Android: " + details, lastError);
-        }
-        if (lastError != null) {
-            throw new IOException("O Android não confirmou a permissão após três tentativas. Gere um novo código de pareamento e tente novamente.",
-                    lastError);
-        }
-        return hasSecurePermission();
-    }
-
-    private String safeMessage(Throwable e) {
-        String message = e.getMessage();
-        if (message == null || message.trim().isEmpty()) return e.getClass().getSimpleName();
-        if (message.toLowerCase().contains("stream closed")) return "A conexão ADB fechou antes da confirmação. Mantenha a Depuração sem fio ligada e tente novamente com um novo código.";
-        return message;
     }
 
     private TextView text(String value, int sp, int color, boolean bold) {
