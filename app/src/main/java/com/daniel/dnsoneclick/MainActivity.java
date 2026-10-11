@@ -313,7 +313,7 @@ public class MainActivity extends Activity {
                     if (granted) {
                         setupStatus.setText("✓ Pronto. Permissão liberada. Pode desligar a Depuração sem fio.");
                         Toast.makeText(this, "Pronto! Agora é 1 toque.", Toast.LENGTH_LONG).show();
-                    } else setupStatus.setText("Comando enviado. Feche e abra o app uma vez para atualizar o estado.");
+                    } else setupStatus.setText("O Android não confirmou a permissão. Mantenha a Depuração sem fio ligada e tente novamente com um novo código.");
                 });
             } catch (Throwable e) {
                 runOnUiThread(() -> setupStatus.setText("Erro: " + safeMessage(e)));
@@ -375,7 +375,9 @@ public class MainActivity extends Activity {
 
     private String safeMessage(Throwable e) {
         String message = e.getMessage();
-        return message == null || message.trim().isEmpty() ? e.getClass().getSimpleName() : message;
+        if (message == null || message.trim().isEmpty()) return e.getClass().getSimpleName();
+        if (message.toLowerCase().contains("stream closed")) return "A conexão ADB fechou antes da confirmação. Mantenha a Depuração sem fio ligada e tente novamente com um novo código.";
+        return message;
     }
 
     private TextView text(String value, int sp, int color, boolean bold) {
