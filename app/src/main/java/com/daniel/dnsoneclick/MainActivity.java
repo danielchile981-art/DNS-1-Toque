@@ -343,10 +343,11 @@ public class MainActivity extends Activity {
                     try (OutputStream out = shell.openOutputStream();
                          BufferedReader in = new BufferedReader(new InputStreamReader(shell.openInputStream()))) {
                         String cmd = "pm grant " + getPackageName() + " " + PERMISSION + "\nexit\n";
-                        out.write(cmd.getBytes(StandardCharsets.UTF_8));
-                        out.flush();
-                        commandSent = true;
                         try {
+                            out.write(cmd.getBytes(StandardCharsets.UTF_8));
+                            // write() sends the command; the shell may close before flush() returns.
+                            commandSent = true;
+                            out.flush();
                             while (in.readLine() != null) { }
                         } catch (IOException e) {
                             if (!commandSent || !isPeerClosedStream(e)) throw e;
