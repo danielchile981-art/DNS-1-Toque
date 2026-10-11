@@ -1,6 +1,7 @@
 package com.daniel.dnsoneclick;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.StatusBarManager;
 import android.content.ComponentName;
 import android.content.Intent;
@@ -101,7 +102,7 @@ public class MainActivity extends Activity {
         TextView tileSection = text("Atalho no painel rápido", 19, TEXT, true);
         tileSection.setPadding(0, dp(22), 0, dp(4));
         root.addView(tileSection);
-        TextView tileHelp = text("Adiciona um botão na área de atalhos do Galaxy. Cada toque alterna: AdGuard → Automático → Desligado → AdGuard.", 14, MUTED, false);
+        TextView tileHelp = text("Adiciona um bloco ao painel de Configurações rápidas. Cada toque alterna: AdGuard → Automático → Desligado → AdGuard.", 14, MUTED, false);
         tileHelp.setPadding(0, 0, 0, dp(4));
         root.addView(tileHelp);
         root.addView(actionButton("ADICIONAR AO PAINEL RÁPIDO", this::requestQuickSettingsTile));
@@ -169,30 +170,52 @@ public class MainActivity extends Activity {
     }
 
     private void requestQuickSettingsTile() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            StatusBarManager statusBarManager = getSystemService(StatusBarManager.class);
-            if (statusBarManager == null) {
-                showManualTileInstructions();
-                return;
-            }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            showManualTileInstructions("A adição automática exige Android 13 ou superior.");
+            return;
+        }
 
-            ComponentName componentName = new ComponentName(this, DnsTileService.class);
-            Icon icon = Icon.createWithResource(this, R.drawable.ic_dns_tile);
-            Toast.makeText(this, "Confirme a adição do botão DNS 1 Toque.", Toast.LENGTH_SHORT).show();
+        StatusBarManager statusBarManager = getSystemService(StatusBarManager.class);
+        if (statusBarManager == null) {
+            showManualTileInstructions("O painel deste sistema não aceitou a solicitação automática.");
+            return;
+        }
+
+        ComponentName componentName = new ComponentName(this, DnsTileService.class);
+        Icon icon = Icon.createWithResource(this, R.drawable.ic_dns_tile);
+        try {
             statusBarManager.requestAddTileService(
                     componentName,
                     "DNS 1 Toque",
                     icon,
                     getMainExecutor(),
-                    result -> refreshQuickTile()
+                    result -> {
+                        if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED) {
+                            Toast.makeText(this, "Atalho adicionado ao painel rápido.", Toast.LENGTH_LONG).show();
+                            refreshQuickTile();
+                        } else if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED) {
+                            Toast.makeText(this, "O atalho DNS 1 Toque já está no painel.", Toast.LENGTH_LONG).show();
+                            refreshQuickTile();
+                        } else {
+                            showManualTileInstructions("A solicitação automática foi recusada ou não está disponível neste sistema.");
+                        }
+                    }
             );
-        } else {
-            showManualTileInstructions();
+        } catch (RuntimeException e) {
+            showManualTileInstructions("Não foi possível abrir a confirmação automática neste sistema.");
         }
     }
 
-    private void showManualTileInstructions() {
-        Toast.makeText(this, "Abra o painel rápido > Editar (lápis) > procure DNS 1 Toque e arraste para os atalhos.", Toast.LENGTH_LONG).show();
+    private void showManualTileInstructions(String reason) {
+        new AlertDialog.Builder(this)
+                .setTitle("Adicionar atalho no POCO/Xiaomi")
+                .setMessage(reason + "\\n\\n"
+                        + "1. Abra a Central de controle ou o painel de Configurações rápidas.\\n"
+                        + "2. Toque em Editar (ícone de lápis).\\n"
+                        + "3. Procure “DNS 1 Toque” nos blocos disponíveis.\\n"
+                        + "4. Arraste-o para os blocos ativos e salve.")
+                .setPositiveButton("Entendi", null)
+                .show();
     }
 
     private void refreshQuickTile() {
