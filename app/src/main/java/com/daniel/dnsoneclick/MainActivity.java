@@ -344,7 +344,7 @@ public class MainActivity extends Activity {
                     OutputStream out = shell.openOutputStream();
                     in = new BufferedReader(new InputStreamReader(shell.openInputStream()));
                     String command = "pm grant " + getPackageName() + " " + PERMISSION
-                            + "\\necho " + AdbGrantOutput.RESULT_MARKER + "$?\\nexit\\n";
+                            + "\necho " + AdbGrantOutput.RESULT_MARKER + "$?\nexit\n";
                     try {
                         commandSent = true;
                         out.write(command.getBytes(StandardCharsets.UTF_8));
