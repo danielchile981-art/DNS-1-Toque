@@ -306,7 +306,11 @@ public class MainActivity extends Activity {
                 if (!manager.pair(host, port, code)) throw new Exception("Pareamento recusado. Confira porta e código.");
 
                 runOnUiThread(() -> setupStatus.setText("Pareado. Conectando ao ADB local…"));
-                if (!manager.autoConnect(getApplicationContext(), 10_000)) throw new Exception("Pareou, mas não conectou. Mantenha a Depuração sem fio                 boolean granted = grantSecureSettingsPermission(manager);ted = hasSecurePermission();
+                if (!manager.autoConnect(getApplicationContext(), 10_000)) {
+                    throw new Exception("Pareou, mas não conectou. Mantenha a Depuração sem fio ligada e tente de novo.");
+                }
+
+                boolean granted = grantSecureSettingsPermission(manager);
                 runOnUiThread(() -> {
                     refreshStatus();
                     refreshQuickTile();
