@@ -24,6 +24,12 @@ O app usa um ícone próprio no estilo escudo + rede DNS + botão de energia, ba
 6. Toque em **Parear e liberar permissão**.
 7. Quando aparecer **Permissão liberada**, a configuração terminou.
 
+## Xiaomi, POCO, MIUI e HyperOS
+
+O bloco **DNS 1 Toque** é declarado como um bloco de Configurações rápidas do Android. Em MIUI/HyperOS, a confirmação automática pode não ser exibida pelo painel do fabricante; nesse caso, abra a Central de controle, toque em **Editar** (lápis), encontre **DNS 1 Toque** nos blocos disponíveis e arraste-o para os ativos.
+
+A configuração da permissão pelo próprio app usa Depuração sem fio, disponível no Android 11 ou superior. O projeto mantém Android 11 como versão mínima. Em aparelhos com Android 13 ou superior, o app também tenta pedir ao sistema para adicionar o bloco e mostra instruções manuais se a tentativa não funcionar.
+
 ## APK automático
 
 O workflow `.github/workflows/build-apk.yml` compila o APK em cada push para `main` e também pode ser iniciado manualmente. O arquivo final aparece nos **Artifacts** da execução com o nome **DNS-1-Toque-APK**.
