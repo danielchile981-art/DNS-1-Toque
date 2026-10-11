@@ -81,7 +81,7 @@ public class MainActivity extends Activity {
 
         TextView title = text("DNS 1 Toque", 30, TEXT, true);
         root.addView(title);
-        TextView subtitle = text("AdGuard, Automático ou Desligado sem abrir a tela de DNS depois da ativação inicial.", 15, MUTED, false);
+        TextView subtitle = text("Compatível com Xiaomi, Redmi e POCO (MIUI/HyperOS, Android 11+). Depois da ativação inicial, altere o DNS ou use o atalho no painel.", 15, MUTED, false);
         subtitle.setPadding(0, dp(6), 0, dp(18));
         root.addView(subtitle);
 
@@ -113,7 +113,7 @@ public class MainActivity extends Activity {
         boxLp.topMargin = dp(22);
         setupBox.setLayoutParams(boxLp);
         setupBox.addView(text("Ativação inicial — sem PC e sem Termux", 18, TEXT, true));
-        TextView help = text("1. Abra a Depuração sem fio.\n2. Toque em Parear dispositivo com código.\n3. Mantenha a janela de pareamento aberta.\n4. Digite a porta e o código abaixo.\n5. Toque em Parear e liberar permissão.", 14, MUTED, false);
+        TextView help = text("Xiaomi, Redmi e POCO: em Configurações > Sobre o telefone, toque 7 vezes na versão MIUI/HyperOS (em alguns modelos, em Informações detalhadas e especificações > Versão do SO).\\nDepois, abra Configurações adicionais > Opções do desenvolvedor > Depuração sem fio. Os nomes podem variar.\\n\\n1. Toque em Parear dispositivo com código.\\n2. Mantenha a janela de pareamento aberta.\\n3. Digite a porta e o código abaixo.\\n4. Toque em Parear e liberar permissão. (Android 11 ou superior.)", 14, MUTED, false);
         help.setPadding(0, dp(8), 0, dp(10));
         setupBox.addView(help);
         setupBox.addView(actionButton("ABRIR DEPURAÇÃO SEM FIO", this::openWirelessDebugging));
@@ -209,7 +209,7 @@ public class MainActivity extends Activity {
 
     private void showManualTileInstructions(String reason) {
         new AlertDialog.Builder(this)
-                .setTitle("Adicionar atalho no POCO/Xiaomi")
+                .setTitle("Adicionar atalho Xiaomi/Redmi/POCO")
                 .setMessage(reason + "\n\n"
                         + "1. Abra a Central de controle ou o painel de Configurações rápidas.\n"
                         + "2. Toque em Editar (ícone de lápis).\n"
